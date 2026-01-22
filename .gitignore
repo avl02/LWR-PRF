@@ -1,0 +1,4 @@
+*.vvp
+*.vcd
+secret_key.json
+secret_key.mem

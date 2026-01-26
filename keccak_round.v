@@ -2,7 +2,7 @@ module keccak_round (
     input  wire [1599:0] state_in,
     input  wire [4:0]   round,
     output wire [1599:0] state_out
-)
+);
 
     // Unpack state
     wire [63:0] s [0:24];
@@ -84,83 +84,86 @@ module keccak_round (
         input [4:0] index;
         begin
             case (index)
-                5'd0:   rho_rot = 6'd1;
-                5'd1:   rho_rot = 6'd3;
-                5'd2:   rho_rot = 6'd6;
-                5'd3:   rho_rot = 6'd10;
-                5'd4:   rho_rot = 6'd15;
-                5'd5:   rho_rot = 6'd21;
-                5'd6:   rho_rot = 6'd28;
-                5'd7:   rho_rot = 6'd36;
-                5'd8:   rho_rot = 6'd45;
-                5'd9:   rho_rot = 6'd55;
-                5'd10:  rho_rot = 6'd2;
-                5'd11:  rho_rot = 6'd14;
-                5'd12:  rho_rot = 6'd27;
-                5'd13:  rho_rot = 6'd41;
-                5'd14:  rho_rot = 6'd56;
-                5'd15:  rho_rot = 6'd8;
-                5'd16:  rho_rot = 6'd25;
-                5'd17:  rho_rot = 6'd43;
-                5'd18:  rho_rot = 6'd62;
-                5'd19:  rho_rot = 6'd18;
-                5'd20:  rho_rot = 6'd39;
-                5'd21:  rho_rot = 6'd61;
-                5'd22:  rho_rot = 6'd20;
-                5'd23:  rho_rot = 6'd44;
-                default:rho_rot = 6'd0;
+                5'd0:  rho_rot = 6'd0;
+                5'd1:  rho_rot = 6'd44;
+                5'd2:  rho_rot = 6'd43;
+                5'd3:  rho_rot = 6'd21;
+                5'd4:  rho_rot = 6'd14;
+                5'd5:  rho_rot = 6'd28;
+                5'd6:  rho_rot = 6'd20;
+                5'd7:  rho_rot = 6'd3;
+                5'd8:  rho_rot = 6'd45;
+                5'd9:  rho_rot = 6'd61;
+                5'd10: rho_rot = 6'd1;
+                5'd11: rho_rot = 6'd6;
+                5'd12: rho_rot = 6'd25;
+                5'd13: rho_rot = 6'd8;
+                5'd14: rho_rot = 6'd18;
+                5'd15: rho_rot = 6'd27;
+                5'd16: rho_rot = 6'd36;
+                5'd17: rho_rot = 6'd10;
+                5'd18: rho_rot = 6'd15;
+                5'd19: rho_rot = 6'd56;
+                5'd20: rho_rot = 6'd62;
+                5'd21: rho_rot = 6'd55;
+                5'd22: rho_rot = 6'd39;
+                5'd23: rho_rot = 6'd41;
+                5'd24: rho_rot = 6'd2;
+                default: rho_rot = 6'd0;
             endcase
         end
     endfunction
 
-    function [4:0] pi_index;
-        input [4:0] index;
+    function [4:0] pi_lane;
+        input [4:0] pos;
         begin
-            case (index)
-                5'd0:   pi_index = 5'10;
-                5'd1:   pi_index = 5'7;
-                5'd2:   pi_index = 5'11;
-                5'd3:   pi_index = 5'17;
-                5'd4:   pi_index = 5'18;
-                5'd5:   pi_index = 5'3;
-                5'd6:   pi_index = 5'5;
-                5'd7:   pi_index = 5'16;
-                5'd8:   pi_index = 5'8;
-                5'd9:   pi_index = 5'21;
-                5'd10:  pi_index = 5'24;
-                5'd11:  pi_index = 5'4;
-                5'd12:  pi_index = 5'15;
-                5'd13:  pi_index = 5'23;
-                5'd14:  pi_index = 5'19;
-                5'd15:  pi_index = 5'13;
-                5'd16:  pi_index = 5'12;
-                5'd17:  pi_index = 5'2;
-                5'd18:  pi_index = 5'20;
-                5'd19:  pi_index = 5'14;
-                5'd20:  pi_index = 5'22;
-                5'd21:  pi_index = 5'9;
-                5'd22:  pi_index = 5'6;
-                5'd23:  pi_index = 5'1;
-                default:pi_index = 5'd0;
+            case (pos)
+                5'd0:  pi_lane = 5'd0;
+                5'd1:  pi_lane = 5'd6;
+                5'd2:  pi_lane = 5'd12;
+                5'd3:  pi_lane = 5'd18;
+                5'd4:  pi_lane = 5'd24;
+                5'd5:  pi_lane = 5'd3;
+                5'd6:  pi_lane = 5'd9;
+                5'd7:  pi_lane = 5'd10;
+                5'd8:  pi_lane = 5'd16;
+                5'd9:  pi_lane = 5'd22;
+                5'd10: pi_lane = 5'd1;
+                5'd11: pi_lane = 5'd7;
+                5'd12: pi_lane = 5'd13;
+                5'd13: pi_lane = 5'd19;
+                5'd14: pi_lane = 5'd20;
+                5'd15: pi_lane = 5'd4;
+                5'd16: pi_lane = 5'd5;
+                5'd17: pi_lane = 5'd11;
+                5'd18: pi_lane = 5'd17;
+                5'd19: pi_lane = 5'd23;
+                5'd20: pi_lane = 5'd2;
+                5'd21: pi_lane = 5'd8;
+                5'd22: pi_lane = 5'd14;
+                5'd23: pi_lane = 5'd15;
+                5'd24: pi_lane = 5'd21;
+                default: pi_lane = 5'd0;
             endcase
         end
     endfunction
+
 
     wire [63:0] rho_pi [0:24];
 
     genvar rpi;
     generate
         for (rpi = 0; rpi < 25; rpi = rpi + 1) begin : rho_pi_loop
-            assign rho_pi[rpi] = rotl(theta[pi_index(rpi)], rho_rot(rpi));
+            assign rho_pi[rpi] = rotl(theta[pi_lane(rpi)], rho_rot(rpi));
         end
     endgenerate
 
     // Chi
     wire [63:0] chi [0:24];
     genvar x,y,r;
-    wire [63:0] row [0:4];
     generate
         for (y = 0; y < 5; y = y + 1) begin : chi_y
+            wire [63:0] row [0:4];
             for (x = 0; x < 5; x = x + 1) begin : chi_row
                 assign row[x] = rho_pi[y * 5 + x];
             end

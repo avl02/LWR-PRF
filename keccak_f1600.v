@@ -55,9 +55,18 @@ module keccak_f1600 (
         end
     end
 
+    // Done: registered so it fires after state_reg captures the final round
+    reg done_r;
+    always @(posedge clk or negedge rst_n) begin
+        if (!rst_n)
+            done_r <= 1'b0;
+        else
+            done_r <= (fsm_state == RUNNING) && (round_counter == 5'd23);
+    end
+
     // Outputs
     assign state_out = state_reg;
     assign ready = (fsm_state == IDLE);
-    assign done = (fsm_state == RUNNING) && (round_counter == 5'd23);
+    assign done = done_r;
 
 endmodule

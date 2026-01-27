@@ -5,7 +5,7 @@ module shake256 (
     input wire start,
 
     // Absorb
-    input wire [64:0] data_in,
+    input wire [63:0] data_in,
     input wire [7:0] data_in_keep,
     input wire data_in_valid,
     output wire data_in_ready,
@@ -30,6 +30,7 @@ module shake256 (
     localparam [2:0] S_SQUEEZE = 3'd5;
     localparam [2:0] S_SQUEEZE_PERM = 3'd6;
     localparam [2:0] S_DONE = 3'd7;
+    localparam RATE_LANES = 5'd17;
 
     // Signals
     reg [2:0] fsm_state;
@@ -38,6 +39,7 @@ module shake256 (
     reg [12:0] output_len_reg;
     reg [12:0] output_count;
     reg [3:0] pad_pos;
+    reg pad_after_perm;
 
     // Keccak
     reg perm_start;
@@ -122,8 +124,11 @@ module shake256 (
             output_count <= 13'd0;
             pad_pos <= 4'd0;
             perm_start <= 1'b0;
+            pad_after_perm <= 1'b0;
         end
         else begin
+            perm_start <= 1'b0; // Default
+
             case (fsm_state)
                 S_IDLE: begin
                     if (start) begin
@@ -132,6 +137,7 @@ module shake256 (
                         lane_counter <= 5'd0;
                         output_len_reg <= out_len;
                         output_count <= 13'd0;
+                        pad_after_perm <= 1'b0;
                     end
                 end
 
@@ -143,8 +149,19 @@ module shake256 (
                         if (data_in_last) begin
                             // Save padding position and go to PAD state
                             pad_pos <= count_bytes(data_in_keep);
+
+                            if (data_in_keep == 8'hFF && lane_counter == RATE_LANES - 1) begin
+                                // Need to permute then pad next block
+                                lane_counter <= 5'd0;
+                                perm_start <= 1'b1;
+                                pad_after_perm <= 1'b1;
+                                fsm_state <= S_ABSORB_PERM;
+                            end
+                            else begin
                             fsm_state <= S_PAD;
+                            end
                         end
+
                         else if (lane_counter == RATE_LANES - 1) begin
                             // Rate block full, trigger permutation
                             lane_counter <= 5'd0;
@@ -157,6 +174,22 @@ module shake256 (
                     end
                 end
 
+                S_ABSORB_PERM: begin
+                    if (perm_done) begin
+                        keccak_state <= perm_state_out;
+                        lane_counter <= 5'd0;
+
+                        if (pad_after_perm) begin
+                            // Go to PAD state
+                            pad_after_perm <= 1'b0;
+                            pad_pos <= 4'd0; // Padd at start of new block
+                            fsm_state <= S_PAD;
+                        end
+                        else begin
+                            fsm_state <= S_ABSORB;
+                        end
+                    end
+                end
                 // Squeeze
                 S_SQUEEZE: begin
                     if (data_out_ready) begin
@@ -191,12 +224,42 @@ module shake256 (
                     end
                 end
 
+                S_PAD: begin
+                    // Same byte padding: 0x1F followed by 0x80 -> do combined XOR
+                    if (lane_counter == RATE_LANES - 1 && pad_pos == 4'd7) begin
+                        keccak_state[lane_counter*64 + pad_pos*8 +: 8] <= keccak_state[lane_counter*64 + pad_pos*8 +: 8] ^ 8'h9F;
+                    end
+                    else begin
+                    // XOR 0x1F at padding position in current lane
+                    keccak_state[lane_counter*64 + pad_pos*8 +: 8] <= keccak_state[lane_counter*64 + pad_pos*8 +: 8] ^ 8'h1F;
+    
+                    // XOR 0x80 at byte 7 of lane 16 (last byte of rate)
+                    keccak_state[(RATE_LANES-1)*64 + 56 +: 8] <= keccak_state[(RATE_LANES-1)*64 + 56 +: 8] ^ 8'h80;
+                    end
+    
+                    perm_start <= 1'b1;
+                    fsm_state <= S_PAD_PERM;
+                end
+
+                S_PAD_PERM: begin
+                    if (perm_done) begin
+                        keccak_state <= perm_state_out;
+                        lane_counter <= 5'd0;
+                        output_count <= 13'd0;
+                        
+                        if (output_len_reg == 13'd0)
+                            fsm_state <= S_DONE;
+                        else
+                            fsm_state <= S_SQUEEZE;
+                    end
+                end
+
                 // Done
                 S_DONE: begin
                     if (start) begin
                         keccak_state <= 1600'b0;
                         lane_counter <= 5'd0;
-                        output_len_reg <= output_length;
+                        output_len_reg <= out_len;
                         output_count <= 13'd0;
                         fsm_state <= S_ABSORB;
                     end
@@ -214,6 +277,5 @@ module shake256 (
     assign data_out_valid = (fsm_state == S_SQUEEZE);
     assign done = (fsm_state == S_DONE);
     assign data_out_last = (fsm_state == S_SQUEEZE) && is_last_squeeze;
-    assign done = (fsm_state == S_DONE);
 
 endmodule
